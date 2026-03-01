@@ -1,13 +1,75 @@
+# ------------------------------------------------------------------------------------------------------------------------------------------------------
+# This function searches for the latest version of a script with a given base name in a specified directory, loads it, and returns the file info object of the loaded script. 
+# The expected naming convention for the scripts is BaseName_vX.X.ps1, where X.X represents the version number. If no matching scripts are found, an error is thrown.
+# The -Path parameter is optional and defaults to the current directory if not provided.
+function Get-LatestVersionedScript {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$BaseName,
+
+        [string]$Path = "."
+    )
+
+    Write-Verbose "Searching for latest version of $BaseName in '$Path'"
+
+    $pattern = "${BaseName}_v*.ps1"
+
+    # Try versioned files first
+    $scripts = Get-ChildItem -Path $Path -Filter $pattern -File -ErrorAction SilentlyContinue
+
+    if ($scripts) {
+
+        $latest = $scripts |
+            Sort-Object {
+                if ($_.Name -match 'v(\d+(\.\d+)+)') {
+                    [version]$matches[1]
+                }
+                else {
+                    [version]"0.0"
+                }
+            } -Descending |
+            Select-Object -First 1
+
+        return $latest
+    }
+
+    # Fallback to non-versioned file
+    $baseFile = Join-Path $Path "${BaseName}.ps1"
+
+    if (Test-Path $baseFile) {
+        return Get-Item $baseFile
+    }
+
+    throw "No matching versioned or base script found for '$BaseName' in '$Path'."
+}
 # Include library for pipe communication functions and variables
-. WindowsIPCNamedPipeClient.ps1
+# Include WindowsIPCNamedPipeClient_v1.0.ps1 pipe communication functions and variables
+try {
+
+    $script = Get-LatestVersionedScript -BaseName "WindowsIPCNamedPipeClient"
+
+    Write-Host "Loading $($script.Name)..."
+
+    . $script.FullName
+
+}
+catch {
+
+    Write-Host "Failed to load latest WindowsIPCNamedPipeClient."
+    Write-Host $_
+    exit 1
+
+}
 WindowsIPCNamedPipeClient_loaded
 
 # Pipe Client Startup -------------------------------
-$Global:pipeName = 'PipeName'
+$Global:pipeName = 'GZD'
 function NamedPipeClientStartup {
     Write-Host "[Named Pipe Client Startup]: Pipe: $Global:pipeName" -ForegroundColor Cyan
     Write-Host "[Named Pipe Client Startup]: Connected: $Global:PipeConnected" -ForegroundColor Cyan
-    $ProcessName = "ProcessNameHere"
+    $ProcessName = "GZDoom"
     if (Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
     {
         Write-Host "[Named Pipe Client Startup]: $ProcessName is running" -ForegroundColor Green
@@ -24,7 +86,7 @@ function NamedPipeClientStartup {
         
     }
     if ($Global:PipeConnected -ne $true) {
-        Write-Host -NoNewLine "[Enter Command (open|offline|exit)]: "
+        Write-Host -NoNewLine "[Named Pipe Client Startup] (open|offline|exit)> "
         $cmd = Read-Host
         if ($cmd -eq '') { exit 1 }
         if ($cmd -ne '') {
@@ -53,7 +115,7 @@ function NamedPipeClientStartup {
 # Pipe Client Startup ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Write-Host "`n[Startup]: Starting communications..." -ForegroundColor Green
 $Global:PipeConnected = $false
-$Global:pipeName = 'PipeName'
+$Global:pipeName = 'GZD'
 NamedPipeClientStartup
 # Communication Status After Startups
 if ($Global:PipeConnected) {
@@ -112,5 +174,3 @@ catch {
     }
     Write-Host "[Shutdown]: Pipe Disconnected"
 }
-
-			
