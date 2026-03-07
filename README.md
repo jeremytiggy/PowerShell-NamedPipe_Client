@@ -1,4 +1,4 @@
-# PowerShell-NamedPipe
+# PowerShell-NamedPipe_Client
 Windows PowerShell Library for IPC Named Pipe Client
 
 This PowerShell script functions as an includable library to add functions related to Named Pipe operations. 
