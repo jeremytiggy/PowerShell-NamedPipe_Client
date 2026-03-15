@@ -9,40 +9,43 @@ function Get-LatestVersionedScript {
         [Parameter(Mandatory)]
         [string]$BaseName,
 
-        [string]$Path = "."
+        [string[]]$Path = @(".", ".\lib")
     )
 
-    Write-Verbose "Searching for latest version of $BaseName in '$Path'"
+    foreach ($currentPath in $Path) {
 
-    $pattern = "${BaseName}_v*.ps1"
+        Write-Verbose "Searching for latest version of $BaseName in '$currentPath'"
 
-    # Try versioned files first
-    $scripts = Get-ChildItem -Path $Path -Filter $pattern -File -ErrorAction SilentlyContinue
+        $pattern = "${BaseName}_v*.ps1"
 
-    if ($scripts) {
+        # Try versioned files first
+        $scripts = Get-ChildItem -Path $currentPath -Filter $pattern -File -ErrorAction SilentlyContinue
 
-        $latest = $scripts |
-            Sort-Object {
-                if ($_.Name -match 'v(\d+(\.\d+)+)') {
-                    [version]$matches[1]
-                }
-                else {
-                    [version]"0.0"
-                }
-            } -Descending |
-            Select-Object -First 1
+        if ($scripts) {
 
-        return $latest
+            $latest = $scripts |
+                Sort-Object {
+                    if ($_.Name -match 'v(\d+(\.\d+)+)') {
+                        [version]$matches[1]
+                    }
+                    else {
+                        [version]"0.0"
+                    }
+                } -Descending |
+                Select-Object -First 1
+
+            return $latest
+        }
+
+        # Fallback to non-versioned file
+        $baseFile = Join-Path $currentPath "${BaseName}.ps1"
+
+        if (Test-Path $baseFile) {
+            return Get-Item $baseFile
+        }
     }
 
-    # Fallback to non-versioned file
-    $baseFile = Join-Path $Path "${BaseName}.ps1"
-
-    if (Test-Path $baseFile) {
-        return Get-Item $baseFile
-    }
-
-    throw "No matching versioned or base script found for '$BaseName' in '$Path'."
+    throw "No matching versioned or base script found for '$BaseName' in paths: $($Path -join ', ')"
 }
 # Include library for pipe communication functions and variables
 # Include WindowsIPCNamedPipeClient_v1.0.ps1 pipe communication functions and variables
