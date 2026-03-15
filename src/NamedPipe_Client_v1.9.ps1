@@ -43,7 +43,9 @@ Write-Host "[NamedPipe_Client] function [string]Convert-ToAsciiSafe -[string]Inp
 $Global:NamedPipe_Server_Name = 'PipeName'
 $Global:NamedPipe_Server_Process = 'Process.exe'
 $Global:NamedPipe_Server_ResponseDelay = 57 #milliseconds
+$Global:NamedPipe_Server_ResponseTimeLimit = 5000 #milliseconds
 # Pipe Communications Variables
+$Global:NamedPipe_Client_ConnectedToServer = $false
 $Global:NamedPipe_Server_Data = ''
 $Global:NamedPipe_Server_Data_available = $false
 $Global:NamedPipe_Client_Data = ''
@@ -96,6 +98,7 @@ function NamedPipe_Client_ReadFromServer {
 		if ($bytesRead -gt 0) {
 			$linesRead = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $bytesRead)
 			$lineRead = $linesRead.Trim() -replace "`r|`n", ""
+			$Global:NamedPipe_Server_Data = $lineRead
 			if ($Global:NamedPipe_Client_Debug -eq $true) { Write-Host "[NamedPipe_Client_ReadFromServer]: Data From Server: $($lineRead)" }
 			return $lineRead
 		}
@@ -116,9 +119,10 @@ function NamedPipe_Client_WriteToServer {
         [string]$ClientDataString
     )
 	$safeAsciiClientData = Convert-ToAsciiSafe -InputString $ClientDataString
-	if ($Global:NamedPipe_Client_Debug -eq $true) { Write-Host "[NamedPipe_Client_WriteToServer ]: Sending Data: $($safeAsciiClientData)" }
+	$Global:NamedPipe_Client_Data = $safeAsciiClientData
+	if ($Global:NamedPipe_Client_Debug -eq $true) { Write-Host "[NamedPipe_Client_WriteToServer ]: Sending Data: $($Global:NamedPipe_Client_Data)" }
     
-	$Global:NamedPipe_Client_ServerWriter.WriteLine($safeAsciiClientData)
+	$Global:NamedPipe_Client_ServerWriter.WriteLine($Global:NamedPipe_Client_Data)
 	
 }
 Write-Host "[NamedPipe_Client] function NamedPipe_Client_WriteToServer registered" -ForegroundColor Green
@@ -131,7 +135,21 @@ function NamedPipe_Client_PullServerData {
 	NamedPipe_Client_WriteToServer -ClientDataString $requestString
 
 	# Wait for what should be an immediate response
-	Start-Sleep -Milliseconds $Global:NamedPipe_Server_ResponseDelay
+	$bytesAvailable = 0
+	$responseTime = 0
+	$NoData_And_NotTimedOut = $true
+	if ($Global:NamedPipe_Client_Debug -eq $true) { Write-Host "[NamedPipe_Client_PullServerData]: Beginning poll for server response. Timeout at $($Global:NamedPipe_Server_ResponseTimeLimit)ms" }
+	while ($NoData_And_NotTimedOut) {
+		Start-Sleep -Milliseconds $Global:NamedPipe_Server_ResponseDelay
+		$responseTime+= $Global:NamedPipe_Server_ResponseDelay
+		$bytesAvailable = NamedPipe_Client_PeekAtServer
+		if ($bytesAvailable -ge 1) { $NoData_And_NotTimedOut = $false }
+		if ($responseTime -ge $Global:NamedPipe_Server_ResponseTimeLimit) { $NoData_And_NotTimedOut = $false }
+		if ($Global:NamedPipe_Client_Debug -eq $true) { Write-Host "[NamedPipe_Client_PullServerData]: Pausing for $($Global:NamedPipe_Server_ResponseDelay)ms to give server time to respond" }
+	}
+	if ($Global:NamedPipe_Client_Debug -eq $true) { 
+		Write-Host "[NamedPipe_Client_PullServerData]: Waited $($responseTime) milliseconds" }
+	# Start-Sleep -Milliseconds $Global:NamedPipe_Server_ResponseDelay
 
 	$responseString = NamedPipe_Client_ReadFromServer
     
@@ -195,29 +213,70 @@ function NamedPipe_Client_Startup {
 		Write-Host "[NamedPipe_Client_Startup]: Process: $($Global:NamedPipe_Server_Process)" -ForegroundColor Cyan
 	}
     $ProcessName = $Global:NamedPipe_Server_Process
+	$PipeName = $Global:NamedPipe_Server_Name
     if (Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
     {
         Write-Host "[NamedPipe_Client_Startup]: $ProcessName is running" -ForegroundColor Green
         if ($Global:NamedPipe_Client_ConnectedToServer -ne $true) {
-            Write-Host "[NamedPipe_Client_Startup]: Would you like to open the pipe, or work offline?"
+            Write-Host "[NamedPipe_Client_Startup]: Would you like to OPEN the named pipe, change the TARGET pipe name before opening, or work OFFLINE?"
         }
     }
     else
     {
         Write-Host "[NamedPipe_Client_Startup]: $ProcessName is not running" -ForegroundColor Red
         if ($Global:NamedPipe_Client_ConnectedToServer -ne $true) {
-            Write-Host "[NamedPipe_Client_Startup]: Would you like to attempt to open the pipe, or work offline?"
+            Write-Host "[NamedPipe_Client_Startup]: Would you like to attempt to OPEN the named pipe, change the TARGET pipe name before opening, or work OFFLINE?"
         }
         
     }
     if ($Global:NamedPipe_Client_ConnectedToServer -ne $true) {
-        Write-Host -NoNewLine "[NamedPipe_Client_Startup] (open|offline|exit)> "
+        Write-Host -NoNewLine "[NamedPipe_Client_Startup] (open|target=$($PipeName)@$($ProcessName)|offline|exit)> "
         $cmd = Read-Host
         if ($cmd -eq '') { exit 1 }
         if ($cmd -ne '') {
 	        if ($cmd -eq 'exit') { exit 1 }
-	        elseif ($cmd -eq 'open') { 
-                # Open Pipe Connection
+	        elseif (($cmd -eq 'open') -or ($cmd -eq 'target')) { 
+                if ($cmd -eq 'target') {
+					$makeEdits = $true
+					while ($makeEdits -eq $true) {
+						Write-Host "[NamedPipe_Client_Startup]: Enter target Process & Pipe. Leave blank to use existing value" -ForegroundColor White
+						Write-Host -NoNewLine "[$($ProcessName)] Enter Process Name without extension: > "
+						$NewProcessName = Read-Host
+						if ($NewProcessName -eq '') { $NewProcessName = $ProcessName }
+						Write-Host "[NamedPipe_Client_Startup]: Enter Pipe Name. Leave blank to use existing value" -ForegroundColor White
+						Write-Host -NoNewLine "[$($PipeName)] Enter Pipe Name: > "
+						$NewPipeName = Read-Host
+						if ($NewPipeName -eq '') { $NewPipeName = $PipeName }
+						Write-Host "[NamedPipe_Client_Startup]: Proposed New Target: $($NewPipeName)@$($NewProcessName)."
+						if (Get-Process -Name $NewProcessName -ErrorAction SilentlyContinue)
+						{ Write-Host "[NamedPipe_Client_Startup]: $NewProcessName is running" -ForegroundColor Green }
+						else { Write-Host "[NamedPipe_Client_Startup]: $NewProcessName is not running" -ForegroundColor Yellow }
+						Write-Host "[NamedPipe_Client_Startup]: CONFIRM and open connection, EDIT pipe & process, or DISCARD changes?"
+						Write-Host -NoNewLine "[NamedPipe_Client_Startup]: (confirm|edit|discard)> "
+						$reviewEditsDecision = Read-Host
+						if ($reviewEditsDecision -eq 'confirm') {
+							$Global:NamedPipe_Server_Process = $NewProcessName
+							$Global:NamedPipe_Server_Name = $NewPipeName
+							Write-Host "[NamedPipe_Client_Startup]: Applying changes. Using New Target: $($NewPipeName)@$($NewProcessName)" -ForegroundColor Yellow
+							$makeEdits = $false
+						}
+						elseif ($reviewEditsDecision -eq 'edit') {
+							$ProcessName = $NewProcessName
+							$PipeName = $NewPipeName
+							$makeEdits = $true
+						}
+						else {
+							#discard or invalid entry
+							$ProcessName = $Global:NamedPipe_Server_Process
+							$PipeName = $Global:NamedPipe_Server_Name
+							Write-Host "[NamedPipe_Client_Startup]: Discarding changes. Using Initial Target: $($PipeName)@$($ProcessName)" -ForegroundColor Yellow
+							$makeEdits = $false
+						}
+						#Loop if $makeEdits = $true (edit)
+					}
+				}
+				
+				# Open Pipe Connection
                 try {
                     $Global:NamedPipe_Client_ConnectedToServer = NamedPipe_Client_ConnectToServer
                 } catch {
