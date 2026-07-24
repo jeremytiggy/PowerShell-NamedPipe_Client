@@ -71,8 +71,12 @@ NamedPipe_Client_loaded
 $Global:NamedPipe_Server_Name = 'GZD'
 $Global:NamedPipe_Server_Process = 'powershell'
 $Global:NamedPipe_Server_ResponseDelay = 57 #milliseconds
-$Global:NamedPipe_Client_Debug = $true
+$Global:NamedPipe_Client_Debug = $false
 # Pipe Client Startup ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Write-Host "`n[Startup]: Enable DEBUG mode?" -ForegroundColor White
+Write-Host -NoNewLine "[Startup] (debug|press enter to continue without debugging)> "
+$debug_entry = Read-Host
+$Global:NamedPipe_Client_Debug = ($debug_entry -eq "debug")
 Write-Host "`n[Startup]: Starting communications..." -ForegroundColor White
 NamedPipe_Client_Startup
 # Communication Status After Startups

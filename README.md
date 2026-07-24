@@ -14,31 +14,21 @@ Includes a helper function Convert-ToAsciiSafe, which removes diacritics and non
 
 ## Pipe Communications Variables
  - $Global:NamedPipe_Server_Name (default: 'PipeName') : This will be set to the name of the Pipe named in the Named Pipe Server
- - $Global:NamedPipe_Server_Process (default: 'Process.exe') : This is the name of the application hosting the Named Pipe Server
+ - $Global:NamedPipe_Server_Process (default: 'Process') : This is the name of the application hosting the Named Pipe Server
  - $Global:NamedPipe_Server_ResponseDelay (default 57ms) : This is how long the Pull command will wait after a Write to Read a response
 ## Additional functional global variables
- - $Global:NamedPipe_Server_Data : ASCII single-line string data received from Server by Client (typical, optional)
- - $Global:NamedPipe_Server_Data_available : Boolean flag indicating a successful read. Resets manually or automatically at beginning of Read (optional)
- - $Global:NamedPipe_Client_Data : ASCII single-line string data from Client to Server (typical, optional)
- - $Global:NamedPipe_Client_Debug : set to $true to enable debugging text in console
-
-## Functions
- - NamedPipe_Client_PeekAtServer : Returns current byte count from data read buffer (-1 Error, 0 None, >0 Data Available)
- - NamedPipe_Client_ReadFromServer : Returns ASCII single-line string data from Server. Loads current read buffer data, Trims it, and removes 'r and `n characters. 
- - NamedPipe_Client_WriteToServer : Strips unprintable characters from Input Parameter -ClientDataString and writes to named pipe. 
- - NamedPipe_Client_PullServerData : Enhanced version of WritePipe. Performs a ReadPipe after waiting for a response from the named pipe server.
- - NamedPipe_Client_CloseServerConnection : Closes Pipe Connection, disposes of StreamReader and StreamWriter
- - NamedPipe_Client_ConnectToServer : Begins the NamedPipeClient stream for the pipe named in $Global:NamedPipe_Server_Name. Returns boolean status of connection.
- - NamedPipe_Client_Startup : Checks if the Process named in $Global:NamedPipe_Server_Process is running, opens Pipe.
- - NamedPipe_Client_loaded : Performs a simple Write-Host indicating that the library is loaded successfully. Used to validate proper dot-includes.
+ - $Global:NamedPipe_Client_AvailablePipeSelection_Filter : (T/F) Enable Filtering of available Windows Pipes
+ - $Global:NamedPipe_Client_AutomaticallySelectUniqueFilteredPipeServerName = T/F (If there is exactly only one pipe name after the filtering, automatically select it)
+ - $Global:NamedPipe_Client_AvailablePipeSelection_NamePattern : RegEx filter for desired pipe name list
 
 ## Future Planned Changes
- - Verification for PipeClosed
+ - Graphical interface maybe
 
 ## Known Bugs / Issues
  - Haven't rigorously tested reconnects
 
 ## Versioning
+ - v1.11 - Added pipe selection from a list of available pipes
  - v1.10 - Changed Startup Script to run more automatically
  - v1.1 - Changed names, made functions return values
 
