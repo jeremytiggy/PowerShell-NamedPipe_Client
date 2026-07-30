@@ -13,7 +13,7 @@ Includes a helper function Convert-ToAsciiSafe, which removes diacritics and non
 4. Don't forget to use the format 'powershell -ExecutionPolicy Bypass -File ####.ps1' for each one if you have problems starting.
 
 ## Pipe Communications Variables
- - $Global:NamedPipe_Server_Name (default: 'PipeName') : This will be set to the name of the Pipe named in the Named Pipe Server
+ - $Global:NamedPipe_Server_Name (default: 'Select') : This will be set to the name of the Pipe named in the Named Pipe Server. If it is 'Select', then a list of available pipes will be displayed during startup for the user to select manually
  - $Global:NamedPipe_Server_Process (default: 'Process') : This is the name of the application hosting the Named Pipe Server
  - $Global:NamedPipe_Server_ResponseDelay (default 57ms) : This is how long the Pull command will wait after a Write to Read a response
 ## Additional functional global variables
