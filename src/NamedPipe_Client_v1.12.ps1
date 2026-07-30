@@ -1,6 +1,23 @@
 Write-Host "[NamedPipe_Client] Loading library..." -ForegroundColor Gray
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 # Windows IPC Named Pipe Client Definitions ---------------------------------
+# Global Variables
+# Pipe Parameters
+$Global:NamedPipe_Client_AvailablePipeSelection_Filter = $true
+$Global:NamedPipe_Client_AutomaticallySelectUniqueFilteredPipeServerName = $true
+$Global:NamedPipe_Client_AvailablePipeSelection_NamePattern = '^[ZUG]ZD(_\d+)?$'
+$Global:NamedPipe_Server_Name = 'Select' # can be replaced with actual pipe name if known/static
+$Global:NamedPipe_Server_Process = 'Process'
+$Global:NamedPipe_Server_ResponseDelay = 57 #milliseconds
+$Global:NamedPipe_Server_ResponseTimeLimit = 5000 #milliseconds
+# Pipe Communications Variables
+$Global:NamedPipe_Client_ConnectedToServer = $false
+$Global:NamedPipe_Server_Data = ''
+$Global:NamedPipe_Server_Data_available = $false
+$Global:NamedPipe_Client_Data = ''
+$Global:NamedPipe_Client_Debug = $false
+Write-Host "[NamedPipe_Client] Pipe Parameters registered" -ForegroundColor Green
+
 # Import Windows API function for non-blocking pipe check
 Add-Type -TypeDefinition @"
 using System;
@@ -17,7 +34,7 @@ public class PipeUtils {
         out uint lpBytesLeftThisMessage);
 }
 "@
-Write-Host "[NamedPipe_Client] function TypeDefinition registered" -ForegroundColor Green
+Write-Host "[NamedPipe_Client] public class PipeUtils registered" -ForegroundColor Green
 function Convert-ToAsciiSafe {
     param (
         [string]$InputString
@@ -39,18 +56,7 @@ function Convert-ToAsciiSafe {
     return $ascii
 }
 Write-Host "[NamedPipe_Client] function [string]Convert-ToAsciiSafe -[string]InputString" -ForegroundColor Green
-# Pipe Parameters
-$Global:NamedPipe_Server_Name = 'PipeName'
-$Global:NamedPipe_Server_Process = 'Process'
-$Global:NamedPipe_Server_ResponseDelay = 57 #milliseconds
-$Global:NamedPipe_Server_ResponseTimeLimit = 5000 #milliseconds
-# Pipe Communications Variables
-$Global:NamedPipe_Client_ConnectedToServer = $false
-$Global:NamedPipe_Server_Data = ''
-$Global:NamedPipe_Server_Data_available = $false
-$Global:NamedPipe_Client_Data = ''
-$Global:NamedPipe_Client_Debug = $false
-Write-Host "[NamedPipe_Client] Pipe Parameters registered" -ForegroundColor Green
+
 # Pipe Communications Helper Functions
 function NamedPipe_Client_PeekAtServer {
 	# Use Windows API to check for data without blocking
@@ -251,9 +257,6 @@ function NamedPipe_Client_GetAvailableList {
     }
 }
 Write-Host "[NamedPipe_Client] function NamedPipe_Client_GetAvailableList registered" -ForegroundColor Green
-$Global:NamedPipe_Client_AvailablePipeSelection_Filter = $true
-$Global:NamedPipe_Client_AutomaticallySelectUniqueFilteredPipeServerName = $true
-$Global:NamedPipe_Client_AvailablePipeSelection_NamePattern = '^[ZUG]ZD(_\d+)?$'
 function NamedPipe_Client_SelectPipeServerFromAvailable {
 	Write-Host "[NamedPipe_Client_SelectPipeServerFromAvailable]: Looking for accessible pipes..." -ForegroundColor Gray
 
